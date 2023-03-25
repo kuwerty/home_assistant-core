@@ -39,21 +39,33 @@ EVENT_DOORBELL_CHIME = "doorbell_chime"
 EVENT_CAMERA_MOTION = "camera_motion"
 EVENT_CAMERA_PERSON = "camera_person"
 EVENT_CAMERA_SOUND = "camera_sound"
+EVENT_DOORBELL_BUTTON = "doorbell_button"
 
 # Mapping of supported device traits to home assistant event types.  Devices
 # that support these traits will generate Pub/Sub event messages in
 # the EVENT_NAME_MAP
 DEVICE_TRAIT_TRIGGER_MAP = {
-    DoorbellChimeTrait.NAME: EVENT_DOORBELL_CHIME,
-    CameraMotionTrait.NAME: EVENT_CAMERA_MOTION,
-    CameraPersonTrait.NAME: EVENT_CAMERA_PERSON,
-    CameraSoundTrait.NAME: EVENT_CAMERA_SOUND,
+    DoorbellChimeTrait.NAME: [EVENT_DOORBELL_CHIME, EVENT_DOORBELL_BUTTON],
+    CameraMotionTrait.NAME: [EVENT_CAMERA_MOTION],
+    CameraPersonTrait.NAME: [EVENT_CAMERA_PERSON],
+    CameraSoundTrait.NAME: [EVENT_CAMERA_SOUND],
 }
 
 # Mapping of incoming SDM Pub/Sub event message types to the home assistant
-# event type to fire.
+# event type to fire. EVENT_NAME_MAP corresponds to 'late' events but where
+# the media source is guaranteed to be available.
 EVENT_NAME_MAP = {
     DoorbellChimeEvent.NAME: EVENT_DOORBELL_CHIME,
+    CameraMotionEvent.NAME: EVENT_CAMERA_MOTION,
+    CameraPersonEvent.NAME: EVENT_CAMERA_PERSON,
+    CameraSoundEvent.NAME: EVENT_CAMERA_SOUND,
+}
+
+# As EVENT_NAME_MAP but the events are fired earlier, but the media source
+# may not be ready. It is useful to get a quick response to doorbell button
+# pushes.
+EARLY_EVENT_NAME_MAP = {
+    DoorbellChimeEvent.NAME: EVENT_DOORBELL_BUTTON,
     CameraMotionEvent.NAME: EVENT_CAMERA_MOTION,
     CameraPersonEvent.NAME: EVENT_CAMERA_PERSON,
     CameraSoundEvent.NAME: EVENT_CAMERA_SOUND,

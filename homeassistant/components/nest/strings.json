@@ -86,7 +86,8 @@
       "camera_person": "Person detected",
       "camera_motion": "Motion detected",
       "camera_sound": "Sound detected",
-      "doorbell_chime": "Doorbell pressed"
+      "doorbell_chime": "Doorbell chime with video",
+      "doorbell_button": "Doorbell chime (fast, no video)"
     }
   },
   "issues": {

@@ -109,7 +109,7 @@ def cleanup_media_storage(hass):
 
 @pytest.fixture
 def subscriber() -> YieldFixture[FakeSubscriber]:
-    """Set up the FakeSusbcriber."""
+    """Set up the FakeSubcriber."""
     subscriber = FakeSubscriber()
     with patch(
         "homeassistant.components.nest.api.GoogleNestSubscriber",

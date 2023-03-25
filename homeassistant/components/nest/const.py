@@ -2,7 +2,8 @@
 
 DOMAIN = "nest"
 DATA_SDM = "sdm"
-DATA_SUBSCRIBER = "subscriber"
+DATA_EARLY_SUBSCRIBER = "early_subscriber"
+DATA_MEDIA_SUBSCRIBER = "media_subscriber"
 DATA_DEVICE_MANAGER = "device_manager"
 DATA_NEST_CONFIG = "nest_config"
 

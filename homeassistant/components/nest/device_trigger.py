@@ -1,6 +1,8 @@
 """Provides device automations for Nest."""
 from __future__ import annotations
 
+import itertools
+
 import voluptuous as vol
 
 from homeassistant.components.device_automation import DEVICE_TRIGGER_BASE_SCHEMA
@@ -19,7 +21,7 @@ from .events import DEVICE_TRAIT_TRIGGER_MAP, NEST_EVENT
 
 DEVICE = "device"
 
-TRIGGER_TYPES = set(DEVICE_TRAIT_TRIGGER_MAP.values())
+TRIGGER_TYPES = set(itertools.chain(*DEVICE_TRAIT_TRIGGER_MAP.values()))
 
 TRIGGER_SCHEMA = DEVICE_TRIGGER_BASE_SCHEMA.extend(
     {
@@ -38,7 +40,8 @@ async def async_get_triggers(
     trigger_types = [
         trigger_type
         for trait in device.traits
-        if (trigger_type := DEVICE_TRAIT_TRIGGER_MAP.get(trait))
+        if (trigger_types := DEVICE_TRAIT_TRIGGER_MAP.get(trait))
+        for trigger_type in trigger_types
     ]
     return [
         {

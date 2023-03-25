@@ -172,11 +172,18 @@ async def test_multiple_devices(
     triggers = await async_get_device_automations(
         hass, DeviceAutomationType.TRIGGER, entry2.device_id
     )
-    assert len(triggers) == 1
+    assert len(triggers) == 2
     assert triggers[0] == {
         "platform": "device",
         "domain": DOMAIN,
         "type": "doorbell_chime",
+        "device_id": entry2.device_id,
+        "metadata": {},
+    }
+    assert triggers[1] == {
+        "platform": "device",
+        "domain": DOMAIN,
+        "type": "doorbell_button",
         "device_id": entry2.device_id,
         "metadata": {},
     }

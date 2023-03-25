@@ -80,7 +80,7 @@ async def test_auth(hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) ->
     assert headers == {"Authorization": f"Bearer {FAKE_TOKEN}"}
 
     # Verify the susbcriber was created with the correct credentials
-    assert len(new_subscriber_mock.mock_calls) == 1
+    assert len(new_subscriber_mock.mock_calls) == 2
     assert captured_creds
     creds = captured_creds
     assert creds.token == FAKE_TOKEN
@@ -154,7 +154,7 @@ async def test_auth_expired_token(
 
     # The subscriber is created with a token that is expired.  Verify that the
     # credential is expired so the subscriber knows it needs to refresh it.
-    assert len(new_subscriber_mock.mock_calls) == 1
+    assert len(new_subscriber_mock.mock_calls) == 2
     assert captured_creds
     creds = captured_creds
     assert creds.token == FAKE_TOKEN

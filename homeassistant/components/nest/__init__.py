@@ -65,14 +65,15 @@ from .const import (
     CONF_SUBSCRIBER_ID,
     CONF_SUBSCRIBER_ID_IMPORTED,
     DATA_DEVICE_MANAGER,
+    DATA_EARLY_SUBSCRIBER,
+    DATA_MEDIA_SUBSCRIBER,
     DATA_NEST_CONFIG,
     DATA_SDM,
-    DATA_SUBSCRIBER,
     DOMAIN,
     INSTALLED_AUTH_DOMAIN,
     WEB_AUTH_DOMAIN,
 )
-from .events import EVENT_NAME_MAP, NEST_EVENT
+from .events import EARLY_EVENT_NAME_MAP, EVENT_NAME_MAP, NEST_EVENT
 from .legacy import async_setup_legacy, async_setup_legacy_entry
 from .media_source import (
     async_get_media_event_store,
@@ -166,8 +167,13 @@ class SignalUpdateCallback:
         if not device_entry:
             return
         for api_event_type, image_event in events.items():
-            if not (event_type := EVENT_NAME_MAP.get(api_event_type)):
-                continue
+            if event_message.is_thread_ended:
+                if not (event_type := EVENT_NAME_MAP.get(api_event_type)):
+                    continue
+            else:
+                if not (event_type := EARLY_EVENT_NAME_MAP.get(api_event_type)):
+                    continue
+
             message = {
                 "device_id": device_entry.id,
                 "type": event_type,
@@ -194,43 +200,60 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async_delete_issue(hass, DOMAIN, "removed_app_auth")
 
-    subscriber = await api.new_subscriber(hass, entry)
-    if not subscriber:
+    # The early_subscriber does not request media and receives events much earlier, when
+    # the event enters the 'STARTED' state.
+    #
+    # The media_subscriber asks for media and responds much later (often 30 seconds later.)
+    [early_subscriber, media_subscriber] = await asyncio.gather(
+        api.new_subscriber(hass, entry), api.new_subscriber(hass, entry)
+    )
+    if not early_subscriber or not media_subscriber:
         return False
+
     # Keep media for last N events in memory
-    subscriber.cache_policy.event_cache_size = EVENT_MEDIA_CACHE_SIZE
-    subscriber.cache_policy.fetch = True
+    media_subscriber.cache_policy.event_cache_size = EVENT_MEDIA_CACHE_SIZE
+    media_subscriber.cache_policy.fetch = True
     # Use disk backed event media store
-    subscriber.cache_policy.store = await async_get_media_event_store(hass, subscriber)
-    subscriber.cache_policy.transcoder = await async_get_transcoder(hass)
+    media_subscriber.cache_policy.store = await async_get_media_event_store(
+        hass, media_subscriber
+    )
+    media_subscriber.cache_policy.transcoder = await async_get_transcoder(hass)
 
     async def async_config_reload() -> None:
         await hass.config_entries.async_reload(entry.entry_id)
 
     callback = SignalUpdateCallback(hass, async_config_reload)
-    subscriber.set_update_callback(callback.async_handle_event)
+    early_subscriber.set_update_callback(callback.async_handle_event)
+    media_subscriber.set_update_callback(callback.async_handle_event)
+
     try:
-        await subscriber.start_async()
+        await asyncio.gather(
+            early_subscriber.start_async(), media_subscriber.start_async()
+        )
     except AuthException as err:
         raise ConfigEntryAuthFailed(
             f"Subscriber authentication error: {str(err)}"
         ) from err
     except ConfigurationException as err:
         _LOGGER.error("Configuration error: %s", err)
-        subscriber.stop_async()
+        early_subscriber.stop_async()
+        media_subscriber.stop_async()
         return False
     except SubscriberException as err:
-        subscriber.stop_async()
+        early_subscriber.stop_async()
+        media_subscriber.stop_async()
         raise ConfigEntryNotReady(f"Subscriber error: {str(err)}") from err
 
     try:
-        device_manager = await subscriber.async_get_device_manager()
+        device_manager = await media_subscriber.async_get_device_manager()
     except ApiException as err:
-        subscriber.stop_async()
+        early_subscriber.stop_async()
+        media_subscriber.stop_async()
         raise ConfigEntryNotReady(f"Device manager error: {str(err)}") from err
 
     hass.data[DOMAIN][entry.entry_id] = {
-        DATA_SUBSCRIBER: subscriber,
+        DATA_EARLY_SUBSCRIBER: early_subscriber,
+        DATA_MEDIA_SUBSCRIBER: media_subscriber,
         DATA_DEVICE_MANAGER: device_manager,
     }
 
@@ -309,9 +332,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if DATA_SDM not in entry.data:
         # Legacy API
         return True
-    _LOGGER.debug("Stopping nest subscriber")
-    subscriber = hass.data[DOMAIN][entry.entry_id][DATA_SUBSCRIBER]
-    subscriber.stop_async()
+    _LOGGER.debug("Stopping nest subscribers")
+    hass.data[DOMAIN][entry.entry_id][DATA_EARLY_SUBSCRIBER].stop_async()
+    hass.data[DOMAIN][entry.entry_id][DATA_MEDIA_SUBSCRIBER].stop_async()
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
